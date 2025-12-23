@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -9,6 +9,10 @@ app = Flask(__name__)
 DB_FILE = "users.db"
 UPLOAD_FOLDER = "uploads"
 THUMB_FOLDER = "thumbnails"
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(THUMB_FOLDER, exist_ok=True)
+
 
 # helper to get db connection
 def get_db():
@@ -99,6 +103,26 @@ def like(vid):
     db.commit()
     db.close()
     return jsonify({"liked": True})
+
+@app.route("/videos/<int:vid_id>", methods=["GET"])
+def get_video(vid_id):
+    db = get_db()
+    v = db.execute(
+        "SELECT id, title, description, uploader_id, thumbnail, filename, likes FROM videos WHERE id=?",
+        (vid_id,)
+    ).fetchone()
+    db.close()
+    if not v:
+        return jsonify({"error": "Video not found"}), 404
+    return jsonify(dict(v))
+
+@app.route("/videos/<path:filename>")
+def serve_video(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
+@app.route("/thumbnails/<path:filename>")
+def serve_thumbnail(filename):
+    return send_from_directory(THUMB_FOLDER, filename)
 
 @app.route("/")
 def home():
